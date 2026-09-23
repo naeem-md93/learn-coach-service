@@ -1,10 +1,16 @@
+from pydantic import Field
 from pydantic_settings import BaseSettings
 from pydantic_settings import SettingsConfigDict
 
 
 class ProjectSettings(BaseSettings):
-    HOST: str
-    PORT: int
+    # Only consulted by local dev tooling (e.g. `manage.py runserver`).
+    # Optional with dev-friendly defaults so importing settings doesn't
+    # hard-fail in production environments (Railway, Render, ...) that
+    # don't set PROJECT_HOST/PROJECT_PORT — the actual bind address/port
+    # in production comes from gunicorn's --bind / $PORT instead.
+    HOST: str = "localhost"
+    PORT: int = 8008
 
     model_config = SettingsConfigDict(
         env_file=".env",
@@ -48,9 +54,12 @@ class DjangoSettings(BaseSettings):
     ALLOWED_HOSTS: str = ""
     CORS_ALLOWED_ORIGINS: str = ""
     CSRF_TRUSTED_ORIGINS: str = ""
-    # Single connection string (e.g. Render managed Postgres). When unset,
-    # DATABASE_SETTINGS (discrete POSTGRES_* vars) is used instead.
-    DATABASE_URL: str | None = None
+    # Single connection string (e.g. Render/Railway managed Postgres). When
+    # unset, DATABASE_SETTINGS (discrete POSTGRES_* vars) is used instead.
+    # Managed Postgres add-ons set the unprefixed DATABASE_URL (no DJANGO_
+    # prefix) themselves, so this reads that name directly via
+    # validation_alias instead of the model's usual DJANGO_ prefix.
+    DATABASE_URL: str | None = Field(default=None, validation_alias="DATABASE_URL")
 
     model_config = SettingsConfigDict(
         env_file=".env",
