@@ -12,7 +12,11 @@ https://docs.djangoproject.com/en/6.1/ref/settings/
 
 from pathlib import Path
 
+import dj_database_url
+
 from lc_service.settings.project import DATABASE_SETTINGS
+from lc_service.settings.project import DJANGO_SETTINGS
+from lc_service.settings.project import RENDER_SETTINGS
 
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent.parent
@@ -21,12 +25,21 @@ BASE_DIR = Path(__file__).resolve().parent.parent.parent
 # See https://docs.djangoproject.com/en/6.1/howto/deployment/checklist/
 
 # SECURITY WARNING: keep the secret key used in production secret!
-SECRET_KEY = 'django-insecure-3-o=j&l2#1v2&mcuh4t2rtqy&(+*4yprvetl5+-0@-5*z@d5g2'
+# Read from DJANGO_SECRET_KEY env var; falls back to the original insecure
+# dev key so local `.env` workflows keep working unchanged. Render's
+# render.yaml generates and injects a real DJANGO_SECRET_KEY at deploy time.
+SECRET_KEY = DJANGO_SETTINGS.SECRET_KEY
 
 # SECURITY WARNING: don't run with debug turned on in production!
-DEBUG = True
+# Defaults to False (production-safe); set DJANGO_DEBUG=true for local dev.
+DEBUG = DJANGO_SETTINGS.DEBUG
 
-ALLOWED_HOSTS = ["*"]
+# Comma-separated via DJANGO_ALLOWED_HOSTS, plus Render's auto-provided
+# RENDER_EXTERNAL_HOSTNAME (if present) so the app works out of the box on
+# Render without duplicating the hostname into another env var.
+ALLOWED_HOSTS = [h.strip() for h in DJANGO_SETTINGS.ALLOWED_HOSTS.split(",") if h.strip()]
+if RENDER_SETTINGS.EXTERNAL_HOSTNAME:
+    ALLOWED_HOSTS.append(RENDER_SETTINGS.EXTERNAL_HOSTNAME)
 
 
 # Application definition
@@ -38,6 +51,7 @@ INSTALLED_APPS = [
     'django.contrib.sessions',
     'django.contrib.messages',
     'django.contrib.staticfiles',
+    'corsheaders',
     'rest_framework',
     'rest_framework_simplejwt',
     'rest_framework_simplejwt.token_blacklist',
@@ -48,6 +62,8 @@ AUTH_USER_MODEL = 'lc_auth.User'
 
 MIDDLEWARE = [
     'django.middleware.security.SecurityMiddleware',
+    'whitenoise.middleware.WhiteNoiseMiddleware',
+    'corsheaders.middleware.CorsMiddleware',
     'django.contrib.sessions.middleware.SessionMiddleware',
     'django.middleware.common.CommonMiddleware',
     'django.middleware.csrf.CsrfViewMiddleware',
@@ -79,16 +95,25 @@ WSGI_APPLICATION = 'lc_service.api.wsgi.application'
 # Database
 # https://docs.djangoproject.com/en/6.1/ref/settings/#databases
 
-DATABASES = {
-    'default': {
-        'ENGINE': 'django.db.backends.postgresql',
-        'NAME': DATABASE_SETTINGS.NAME,
-        'USER': DATABASE_SETTINGS.USER,
-        'PASSWORD': DATABASE_SETTINGS.PASSWORD,
-        'HOST': DATABASE_SETTINGS.HOST,
-        'PORT': DATABASE_SETTINGS.PORT,
+# Render managed Postgres (and most other managed Postgres providers)
+# expose a single DATABASE_URL connection string. When present, it takes
+# priority. Otherwise fall back to the discrete POSTGRES_* settings used by
+# the local docker-compose Postgres, for backward compatibility.
+if DJANGO_SETTINGS.DATABASE_URL:
+    DATABASES = {
+        'default': dj_database_url.parse(DJANGO_SETTINGS.DATABASE_URL, conn_max_age=600)
     }
-}
+else:
+    DATABASES = {
+        'default': {
+            'ENGINE': 'django.db.backends.postgresql',
+            'NAME': DATABASE_SETTINGS.NAME,
+            'USER': DATABASE_SETTINGS.USER,
+            'PASSWORD': DATABASE_SETTINGS.PASSWORD,
+            'HOST': DATABASE_SETTINGS.HOST,
+            'PORT': DATABASE_SETTINGS.PORT,
+        }
+    }
 
 
 # Password validation
@@ -126,6 +151,37 @@ USE_TZ = True
 # https://docs.djangoproject.com/en/6.1/howto/static-files/
 
 STATIC_URL = 'static/'
+STATIC_ROOT = BASE_DIR / 'staticfiles'
+
+# Served by WhiteNoise directly from the app process (no separate
+# CDN/nginx on Render). Only django.contrib.admin ships static assets today.
+STORAGES = {
+    "default": {
+        "BACKEND": "django.core.files.storage.FileSystemStorage",
+    },
+    "staticfiles": {
+        "BACKEND": "whitenoise.storage.CompressedManifestStaticFilesStorage",
+    },
+}
+
+
+# CORS / CSRF
+# https://pypi.org/project/django-cors-headers/
+# The UI (Vercel) is on a different origin, so allowed origins must be set
+# explicitly via env var — no wildcard. The API is JWT-based (no session
+# cookies used cross-origin), so CORS_ALLOW_CREDENTIALS is left off.
+
+CORS_ALLOWED_ORIGINS = [o.strip() for o in DJANGO_SETTINGS.CORS_ALLOWED_ORIGINS.split(",") if o.strip()]
+
+# CSRF is only actually exercised by session-authenticated views (the
+# Django admin, and DRF's SessionAuthentication if ever enabled) since
+# CsrfViewMiddleware/SessionMiddleware are active but the API itself is
+# JWT-based (CSRF-exempt). Trust the same cross-origin hosts as CORS, plus
+# Render's own external hostname, so /admin/ works if ever accessed
+# through a proxied or custom domain.
+CSRF_TRUSTED_ORIGINS = [o.strip() for o in DJANGO_SETTINGS.CSRF_TRUSTED_ORIGINS.split(",") if o.strip()]
+if RENDER_SETTINGS.EXTERNAL_HOSTNAME:
+    CSRF_TRUSTED_ORIGINS.append(f"https://{RENDER_SETTINGS.EXTERNAL_HOSTNAME}")
 
 
 # Email

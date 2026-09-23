@@ -1,3 +1,5 @@
+from typing import Optional
+
 from pydantic_settings import BaseSettings
 from pydantic_settings import SettingsConfigDict
 
@@ -17,11 +19,17 @@ PROJECT_SETTINGS = ProjectSettings()
 
 
 class DatabaseSettings(BaseSettings):
-    NAME: str
-    USER: str
-    PASSWORD: str
-    HOST: str
-    PORT: int
+    # Discrete connection params, used for local docker-compose Postgres.
+    # Ignored when DJANGO_SETTINGS's DjangoSettings.DATABASE_URL is set
+    # (e.g. Render managed Postgres, which provides a single connection
+    # string instead of discrete params). All fields are optional here so
+    # this class doesn't fail to load in environments that only set
+    # DATABASE_URL.
+    NAME: Optional[str] = None
+    USER: Optional[str] = None
+    PASSWORD: Optional[str] = None
+    HOST: Optional[str] = None
+    PORT: Optional[int] = None
 
     model_config = SettingsConfigDict(
         env_file=".env",
@@ -31,3 +39,43 @@ class DatabaseSettings(BaseSettings):
     )
 
 DATABASE_SETTINGS = DatabaseSettings()
+
+
+class DjangoSettings(BaseSettings):
+    # Django-specific deployment settings, read directly from the process
+    # environment (with local-dev defaults via `.env`), following the same
+    # pydantic-settings pattern as ProjectSettings/DatabaseSettings above.
+    SECRET_KEY: str = "django-insecure-3-o=j&l2#1v2&mcuh4t2rtqy&(+*4yprvetl5+-0@-5*z@d5g2"
+    DEBUG: bool = False
+    ALLOWED_HOSTS: str = ""
+    CORS_ALLOWED_ORIGINS: str = ""
+    CSRF_TRUSTED_ORIGINS: str = ""
+    # Single connection string (e.g. Render managed Postgres). When unset,
+    # DATABASE_SETTINGS (discrete POSTGRES_* vars) is used instead.
+    DATABASE_URL: Optional[str] = None
+
+    model_config = SettingsConfigDict(
+        env_file=".env",
+        env_file_encoding="utf-8",
+        env_prefix="DJANGO_",
+        extra="ignore"
+    )
+
+DJANGO_SETTINGS = DjangoSettings()
+
+
+class RenderSettings(BaseSettings):
+    # Render sets RENDER_EXTERNAL_HOSTNAME automatically (no DJANGO_ prefix)
+    # for every web service on deploy. Read separately so it can be added to
+    # ALLOWED_HOSTS/CSRF_TRUSTED_ORIGINS out of the box, without the user
+    # having to duplicate the hostname into DJANGO_ALLOWED_HOSTS manually.
+    EXTERNAL_HOSTNAME: Optional[str] = None
+
+    model_config = SettingsConfigDict(
+        env_file=".env",
+        env_file_encoding="utf-8",
+        env_prefix="RENDER_",
+        extra="ignore"
+    )
+
+RENDER_SETTINGS = RenderSettings()

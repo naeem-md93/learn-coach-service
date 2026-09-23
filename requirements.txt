@@ -5,3 +5,7 @@ psycopg[binary]
 python-dotenv
 pydantic
 pydantic-settings
+dj-database-url
+django-cors-headers
+whitenoise
+gunicorn
