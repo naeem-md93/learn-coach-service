@@ -1,0 +1,7 @@
+django
+djangorestframework
+djangorestframework-simplejwt
+psycopg[binary]
+python-dotenv
+pydantic
+pydantic-settings
