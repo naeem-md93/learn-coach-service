@@ -1,5 +1,3 @@
-from typing import Optional
-
 from pydantic_settings import BaseSettings
 from pydantic_settings import SettingsConfigDict
 
@@ -25,11 +23,11 @@ class DatabaseSettings(BaseSettings):
     # string instead of discrete params). All fields are optional here so
     # this class doesn't fail to load in environments that only set
     # DATABASE_URL.
-    NAME: Optional[str] = None
-    USER: Optional[str] = None
-    PASSWORD: Optional[str] = None
-    HOST: Optional[str] = None
-    PORT: Optional[int] = None
+    NAME: str | None = None
+    USER: str | None = None
+    PASSWORD: str | None = None
+    HOST: str | None = None
+    PORT: int | None = None
 
     model_config = SettingsConfigDict(
         env_file=".env",
@@ -52,7 +50,7 @@ class DjangoSettings(BaseSettings):
     CSRF_TRUSTED_ORIGINS: str = ""
     # Single connection string (e.g. Render managed Postgres). When unset,
     # DATABASE_SETTINGS (discrete POSTGRES_* vars) is used instead.
-    DATABASE_URL: Optional[str] = None
+    DATABASE_URL: str | None = None
 
     model_config = SettingsConfigDict(
         env_file=".env",
@@ -69,7 +67,7 @@ class RenderSettings(BaseSettings):
     # for every web service on deploy. Read separately so it can be added to
     # ALLOWED_HOSTS/CSRF_TRUSTED_ORIGINS out of the box, without the user
     # having to duplicate the hostname into DJANGO_ALLOWED_HOSTS manually.
-    EXTERNAL_HOSTNAME: Optional[str] = None
+    EXTERNAL_HOSTNAME: str | None = None
 
     model_config = SettingsConfigDict(
         env_file=".env",
@@ -79,3 +77,20 @@ class RenderSettings(BaseSettings):
     )
 
 RENDER_SETTINGS = RenderSettings()
+
+
+class RailwaySettings(BaseSettings):
+    # Railway sets RAILWAY_PUBLIC_DOMAIN automatically (no DJANGO_ prefix)
+    # for every public service on deploy. Read separately so it can be added
+    # to ALLOWED_HOSTS/CSRF_TRUSTED_ORIGINS out of the box, mirroring
+    # RenderSettings.EXTERNAL_HOSTNAME above.
+    PUBLIC_DOMAIN: str | None = None
+
+    model_config = SettingsConfigDict(
+        env_file=".env",
+        env_file_encoding="utf-8",
+        env_prefix="RAILWAY_",
+        extra="ignore"
+    )
+
+RAILWAY_SETTINGS = RailwaySettings()

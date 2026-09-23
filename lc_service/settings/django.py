@@ -16,6 +16,7 @@ import dj_database_url
 
 from lc_service.settings.project import DATABASE_SETTINGS
 from lc_service.settings.project import DJANGO_SETTINGS
+from lc_service.settings.project import RAILWAY_SETTINGS
 from lc_service.settings.project import RENDER_SETTINGS
 
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
@@ -35,11 +36,14 @@ SECRET_KEY = DJANGO_SETTINGS.SECRET_KEY
 DEBUG = DJANGO_SETTINGS.DEBUG
 
 # Comma-separated via DJANGO_ALLOWED_HOSTS, plus Render's auto-provided
-# RENDER_EXTERNAL_HOSTNAME (if present) so the app works out of the box on
-# Render without duplicating the hostname into another env var.
+# RENDER_EXTERNAL_HOSTNAME / Railway's auto-provided RAILWAY_PUBLIC_DOMAIN
+# (whichever is present) so the app works out of the box on either platform
+# without duplicating the hostname into another env var.
 ALLOWED_HOSTS = [h.strip() for h in DJANGO_SETTINGS.ALLOWED_HOSTS.split(",") if h.strip()]
 if RENDER_SETTINGS.EXTERNAL_HOSTNAME:
     ALLOWED_HOSTS.append(RENDER_SETTINGS.EXTERNAL_HOSTNAME)
+if RAILWAY_SETTINGS.PUBLIC_DOMAIN:
+    ALLOWED_HOSTS.append(RAILWAY_SETTINGS.PUBLIC_DOMAIN)
 
 
 # Application definition
@@ -182,6 +186,8 @@ CORS_ALLOWED_ORIGINS = [o.strip() for o in DJANGO_SETTINGS.CORS_ALLOWED_ORIGINS.
 CSRF_TRUSTED_ORIGINS = [o.strip() for o in DJANGO_SETTINGS.CSRF_TRUSTED_ORIGINS.split(",") if o.strip()]
 if RENDER_SETTINGS.EXTERNAL_HOSTNAME:
     CSRF_TRUSTED_ORIGINS.append(f"https://{RENDER_SETTINGS.EXTERNAL_HOSTNAME}")
+if RAILWAY_SETTINGS.PUBLIC_DOMAIN:
+    CSRF_TRUSTED_ORIGINS.append(f"https://{RAILWAY_SETTINGS.PUBLIC_DOMAIN}")
 
 
 # Email
