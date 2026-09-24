@@ -149,3 +149,50 @@ class LogicSettings(BaseSettings):
     )
 
 LOGIC_SETTINGS = LogicSettings()
+
+
+class GunicornSettings(BaseSettings):
+    # Gunicorn's own defaults (sync worker, 1 worker, 30s --timeout) are
+    # unsafe for this app: Resource upload (and, per CONTEXT.md, chat/quiz
+    # later) synchronously calls learn-coach-logic (FastAPI) and waits for
+    # its full response — which can legitimately take up to
+    # EXTRACT_TITLE_TIMEOUT_SECONDS (45s, see resources/services.py) when
+    # FastAPI has to download a large PDF from a remote URL and/or call an
+    # AI model. Gunicorn's default 30s --timeout kills the worker (SIGKILL,
+    # "WORKER TIMEOUT") well before our own 45s timeout has a chance to
+    # return a graceful fallback, turning a merely slow-but-valid request
+    # into a hard crash. These values are read by the Dockerfile/Procfile
+    # start command via env vars (not hardcoded in gunicorn's CLI flags) so
+    # they can be tuned per-environment without an image rebuild.
+    #
+    # TIMEOUT: worker kill threshold, in seconds. Must stay comfortably
+    # above the slowest known synchronous FastAPI call. 60s gives ~15s of
+    # margin over the 45s extract-title timeout.
+    TIMEOUT: int = 60
+    # WORKERS: number of OS processes. Each sync/gthread worker can only
+    # handle one request at a time per thread, so a single slow upload must
+    # not be able to starve every other concurrent user. 3 is a small,
+    # deliberately-not-over-engineered value for an MVP (Railway's default
+    # free/starter plans are typically 1-2 vCPUs; the common "2 x CPU + 1"
+    # gunicorn sizing guideline lands around this for 1 vCPU).
+    WORKERS: int = 3
+    # THREADS: with the `gthread` worker class (set below), each worker
+    # process can serve this many requests concurrently via threads, so an
+    # I/O-bound request blocked on `requests.post(...)` to FastAPI doesn't
+    # occupy an entire process by itself. 2 threads/worker x 3 workers = 6
+    # concurrent in-flight requests, enough headroom for MVP traffic without
+    # tuning further.
+    THREADS: int = 2
+    # WORKER_CLASS: `gthread` (threaded sync worker) instead of the default
+    # `sync`, specifically so THREADS above actually takes effect. Plain
+    # `sync` ignores --threads entirely (1 request per worker process).
+    WORKER_CLASS: str = "gthread"
+
+    model_config = SettingsConfigDict(
+        env_file=".env",
+        env_file_encoding="utf-8",
+        env_prefix="GUNICORN_",
+        extra="ignore"
+    )
+
+GUNICORN_SETTINGS = GunicornSettings()
