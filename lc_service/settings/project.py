@@ -53,6 +53,14 @@ class DjangoSettings(BaseSettings):
     DEBUG: bool = False
     ALLOWED_HOSTS: str = ""
     CORS_ALLOWED_ORIGINS: str = ""
+    # Optional, comma-separated Python regex patterns (each matched against
+    # the *full* origin, e.g. r"^https://learn-coach-ui-.*\.vercel\.app$").
+    # Lets one pattern cover every Vercel preview-deployment subdomain
+    # (which Vercel generates per-branch/per-PR, e.g.
+    # learn-coach-ui-git-<branch>-<team>.vercel.app) without having to add
+    # each preview URL to CORS_ALLOWED_ORIGINS by hand. Empty by default —
+    # only exact-match CORS_ALLOWED_ORIGINS applies until this is set.
+    CORS_ALLOWED_ORIGIN_REGEXES: str = ""
     CSRF_TRUSTED_ORIGINS: str = ""
     # Single connection string (e.g. Render/Railway managed Postgres). When
     # unset, DATABASE_SETTINGS (discrete POSTGRES_* vars) is used instead.

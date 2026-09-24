@@ -194,6 +194,15 @@ MEDIA_ROOT = BASE_DIR / 'media'
 
 CORS_ALLOWED_ORIGINS = [o.strip() for o in DJANGO_SETTINGS.CORS_ALLOWED_ORIGINS.split(",") if o.strip()]
 
+# Optional regex patterns (env: DJANGO_CORS_ALLOWED_ORIGIN_REGEXES,
+# comma-separated) — mainly for Vercel preview-deployment subdomains, which
+# change per branch/PR and can't all be listed individually in
+# CORS_ALLOWED_ORIGINS above. Empty by default (no extra origins allowed
+# until explicitly configured).
+CORS_ALLOWED_ORIGIN_REGEXES = [
+    r.strip() for r in DJANGO_SETTINGS.CORS_ALLOWED_ORIGIN_REGEXES.split(",") if r.strip()
+]
+
 # CSRF is only actually exercised by session-authenticated views (the
 # Django admin, and DRF's SessionAuthentication if ever enabled) since
 # CsrfViewMiddleware/SessionMiddleware are active but the API itself is
