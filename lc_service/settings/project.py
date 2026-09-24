@@ -68,6 +68,12 @@ class DjangoSettings(BaseSettings):
     # prefix) themselves, so this reads that name directly via
     # validation_alias instead of the model's usual DJANGO_ prefix.
     DATABASE_URL: str | None = Field(default=None, validation_alias="DATABASE_URL")
+    # Controls both the root logger level and the request-logging
+    # middleware's verbosity (DEBUG also turns on masked request/response
+    # body logging — see lc_service.api.common.middleware). Defaults to
+    # INFO so normal request/response summary lines always show, without
+    # needing any env var set, in dev or on Railway.
+    LOG_LEVEL: str = "INFO"
 
     model_config = SettingsConfigDict(
         env_file=".env",

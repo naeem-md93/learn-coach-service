@@ -7,12 +7,14 @@ to download the file. This module builds that URL and calls the
 """
 
 import logging
+import time
 
 import requests
 from django.urls import reverse
 
 from lc_service.settings.project import LOGIC_SETTINGS
 
+from ..common.log_safety import mask_url_token
 from .tokens import make_file_access_token
 
 logger = logging.getLogger(__name__)
@@ -53,23 +55,62 @@ def extract_title(resource) -> str | None:
     """
     file_url = build_internal_file_url(resource)
     endpoint = f"{LOGIC_SETTINGS.BASE_URL.rstrip('/')}/extract-title"
+    safe_file_url = mask_url_token(file_url)
 
+    logger.info(
+        "extract-title: calling %s for resource=%s file_url=%s",
+        endpoint,
+        resource.id,
+        safe_file_url,
+    )
+
+    start = time.monotonic()
     try:
         response = requests.post(
             endpoint,
             json={"file_url": file_url},
             timeout=EXTRACT_TITLE_TIMEOUT_SECONDS,
         )
+        duration_ms = (time.monotonic() - start) * 1000
         response.raise_for_status()
         data = response.json()
         title = data.get("title")
         if isinstance(title, str) and title.strip():
+            logger.info(
+                "extract-title: resource=%s status=%s duration=%.1fms fallback=False",
+                resource.id,
+                response.status_code,
+                duration_ms,
+            )
             return title.strip()
-        logger.warning("extract-title returned no usable title: %r", data)
+        logger.warning(
+            "extract-title: resource=%s status=%s duration=%.1fms fallback=True "
+            "reason=no-usable-title body=%r",
+            resource.id,
+            response.status_code,
+            duration_ms,
+            data,
+        )
         return None
-    except requests.RequestException:
-        logger.exception("Failed to reach logic service for title extraction")
+    except requests.RequestException as exc:
+        duration_ms = (time.monotonic() - start) * 1000
+        status_code = getattr(getattr(exc, "response", None), "status_code", None)
+        logger.exception(
+            "extract-title: resource=%s status=%s duration=%.1fms fallback=True "
+            "reason=request-failed url=%s",
+            resource.id,
+            status_code,
+            duration_ms,
+            safe_file_url,
+        )
         return None
     except ValueError:
-        logger.exception("Logic service returned non-JSON response for title extraction")
+        duration_ms = (time.monotonic() - start) * 1000
+        logger.exception(
+            "extract-title: resource=%s status=%s duration=%.1fms fallback=True "
+            "reason=non-json-response",
+            resource.id,
+            response.status_code,
+            duration_ms,
+        )
         return None

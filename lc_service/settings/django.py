@@ -59,6 +59,7 @@ INSTALLED_APPS = [
     'rest_framework',
     'rest_framework_simplejwt',
     'rest_framework_simplejwt.token_blacklist',
+    'lc_service.api.common',
     'lc_service.api.lc_auth',
     'lc_service.api.resources',
 ]
@@ -69,6 +70,7 @@ MIDDLEWARE = [
     'django.middleware.security.SecurityMiddleware',
     'whitenoise.middleware.WhiteNoiseMiddleware',
     'corsheaders.middleware.CorsMiddleware',
+    'lc_service.api.common.middleware.RequestLoggingMiddleware',
     'django.contrib.sessions.middleware.SessionMiddleware',
     'django.middleware.common.CommonMiddleware',
     'django.middleware.csrf.CsrfViewMiddleware',
@@ -253,4 +255,59 @@ SIMPLE_JWT = {
     'AUTH_HEADER_TYPES': ('Bearer',),
     'USER_ID_FIELD': 'id',
     'USER_ID_CLAIM': 'user_id',
+}
+
+
+# Logging
+# https://docs.djangoproject.com/en/6.1/topics/logging/
+#
+# Everything goes to stdout via a single console handler — this is what
+# Railway (and most other PaaS, e.g. Render) collect logs from; there's no
+# log file/rotation to manage. Level is controlled by DJANGO_LOG_LEVEL
+# (default INFO), applied to the root logger so any app's `logging.getLogger
+# (__name__)` calls are covered without needing per-app entries here.
+#
+# `lc_service.request` (lc_service.api.common.middleware) emits one summary
+# line per HTTP request (method, path, status, duration, user id) at
+# INFO/WARNING/ERROR depending on status code, plus optional masked
+# request/response body logging at DEBUG. `django.server`'s own per-request
+# line (runserver's default access log) is left at its normal level too —
+# disable it separately if the two together are too noisy locally.
+LOG_LEVEL = DJANGO_SETTINGS.LOG_LEVEL.upper()
+
+LOGGING = {
+    'version': 1,
+    'disable_existing_loggers': False,
+    'formatters': {
+        'standard': {
+            'format': '{asctime} {levelname} {name} {message}',
+            'style': '{',
+        },
+    },
+    'handlers': {
+        'console': {
+            'class': 'logging.StreamHandler',
+            'formatter': 'standard',
+        },
+    },
+    'root': {
+        'handlers': ['console'],
+        'level': LOG_LEVEL,
+    },
+    'loggers': {
+        'django': {
+            'handlers': ['console'],
+            'level': LOG_LEVEL,
+            'propagate': False,
+        },
+        # Quiets Django's default "Bad Request"/traceback noise for 4xx
+        # below WARNING while still surfacing real 5xx tracebacks — kept
+        # separate from the request-summary logger above so both can be
+        # tuned independently if needed.
+        'django.request': {
+            'handlers': ['console'],
+            'level': LOG_LEVEL,
+            'propagate': False,
+        },
+    },
 }
