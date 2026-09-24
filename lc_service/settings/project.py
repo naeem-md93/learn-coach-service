@@ -103,3 +103,35 @@ class RailwaySettings(BaseSettings):
     )
 
 RAILWAY_SETTINGS = RailwaySettings()
+
+
+class LogicSettings(BaseSettings):
+    # learn-coach-logic (FastAPI) is a stateless compute service Django
+    # calls out to (title extraction, chat, quiz generation, page
+    # rendering — see CONTEXT.md Service Boundaries). No DB of its own.
+    #
+    # BASE_URL: where *Django* reaches FastAPI to call its endpoints
+    # (e.g. POST {BASE_URL}/extract-title). Defaults to the local dev
+    # FastAPI port; on docker-compose/Railway/Render this should be the
+    # internal service hostname (e.g. http://logic:8001).
+    BASE_URL: str = "http://localhost:8001"
+    # DJANGO_INTERNAL_BASE_URL: the address at which *this Django
+    # instance* is reachable from FastAPI, used to build the file URL
+    # Django hands to FastAPI so it can download the PDF itself (per
+    # CONTEXT.md: a single HTTP-fetchable URL, not a shared volume path).
+    # This is deliberately a separate setting from Django's own public
+    # ALLOWED_HOSTS/browser-facing URL: in a container network the two
+    # sides usually see each other under different hostnames (e.g. the
+    # browser hits `https://api.example.com` while FastAPI, on the same
+    # docker network, must use `http://django:8000`). Defaults to
+    # localhost for local dev where both processes run on the host.
+    DJANGO_INTERNAL_BASE_URL: str = "http://localhost:8008"
+
+    model_config = SettingsConfigDict(
+        env_file=".env",
+        env_file_encoding="utf-8",
+        env_prefix="LOGIC_",
+        extra="ignore"
+    )
+
+LOGIC_SETTINGS = LogicSettings()

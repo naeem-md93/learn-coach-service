@@ -9,3 +9,4 @@ dj-database-url
 django-cors-headers
 whitenoise
 gunicorn
+requests

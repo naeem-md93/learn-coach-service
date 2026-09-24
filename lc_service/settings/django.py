@@ -60,6 +60,7 @@ INSTALLED_APPS = [
     'rest_framework_simplejwt',
     'rest_framework_simplejwt.token_blacklist',
     'lc_service.api.lc_auth',
+    'lc_service.api.resources',
 ]
 
 AUTH_USER_MODEL = 'lc_auth.User'
@@ -167,6 +168,22 @@ STORAGES = {
         "BACKEND": "whitenoise.storage.CompressedManifestStaticFilesStorage",
     },
 }
+
+# User-uploaded files (Resource PDFs, per CONTEXT.md). Served exclusively
+# through the app's own `resources` endpoints (`/api/resources/<id>/file/`)
+# rather than directly off MEDIA_URL, since access needs owner-only auth
+# (or the signed internal token for FastAPI) — see
+# `lc_service.api.resources.views.ResourceFileView`. MEDIA_ROOT/MEDIA_URL
+# are still defined because Django's FileField/FileSystemStorage require
+# them to resolve `.path`/`.url`.
+#
+# NOTE: on a real multi-instance/ephemeral-filesystem deployment (Render,
+# Railway without a persistent disk) this local filesystem storage will
+# NOT persist across deploys/restarts — swapping in an attached persistent
+# disk or object storage (S3-compatible) is a follow-up decision once
+# infra for that is chosen; out of scope for this MVP pass.
+MEDIA_URL = 'media/'
+MEDIA_ROOT = BASE_DIR / 'media'
 
 
 # CORS / CSRF

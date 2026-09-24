@@ -20,6 +20,7 @@ __pycache__
 !.env.example
 
 staticfiles/
+media/
 *.log
 db.sqlite3
 
